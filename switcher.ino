@@ -1,16 +1,18 @@
+#include <ArduinoJson.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <Servo.h>
+#include <SoftwareSerial.h>
 
 #define ON 0  //nilai relay ketika hidup
 #define OFF 1 //nilai relay ketika mati
 #define sensorTDS A0
 #define sensorPH A1
-#define relayHeater 2
-#define relayPompa 3
+#define relayHeater 53
+#define relayPompa 52
 #define pinSuhu 4
 
-#define Offset -5.77 //deviation compensate
+// #define Offset -5.77 //deviation compensate
 #define samplingInterval 20
 #define printInterval 800
 #define ArrayLenth 40    //times of collection
@@ -29,6 +31,10 @@ float Fahrenheit = 0;
 Servo servoAir;
 OneWire oneWire(pinSuhu);
 DallasTemperature sensors(&oneWire);
+SoftwareSerial s(10, 11); // (Rx, Tx)
+// Json
+StaticJsonBuffer<1000> jsonBuffer;
+JsonObject &root = jsonBuffer.createObject();
 
 float getTDS()
 {
@@ -49,26 +55,26 @@ float getSuhu()
   return Celcius;
 }
 
-float getPH()
-{
-  static unsigned long samplingTime = millis();
-  static unsigned long printTime = millis();
-  static float pHValue, voltage;
-  if (millis() - samplingTime > samplingInterval)
-  {
-    pHArray[pHArrayIndex++] = analogRead(sensorPH);
-    if (pHArrayIndex == ArrayLenth)
-      pHArrayIndex = 0;
-    voltage = avergearray(pHArray, ArrayLenth) * 5.0 / 1024;
-    pHValue = 3.5 * voltage + Offset;
-    samplingTime = millis();
-  }
-  if (millis() - printTime > printInterval) //Every 800 milliseconds, print a numerical, convert the state of the LED indicator
-  {
-    return pHValue;
-    printTime = millis();
-  }
-}
+// float getPH()
+// {
+//   static unsigned long samplingTime = millis();
+//   static unsigned long printTime = millis();
+//   static float pHValue, voltage;
+//   if (millis() - samplingTime > samplingInterval)
+//   {
+//     pHArray[pHArrayIndex++] = analogRead(sensorPH);
+//     if (pHArrayIndex == ArrayLenth)
+//       pHArrayIndex = 0;
+//     voltage = avergearray(pHArray, ArrayLenth) * 5.0 / 1024;
+//     pHValue = 3.5 * voltage + Offset;
+//     samplingTime = millis();
+//   }
+//   if (millis() - printTime > printInterval) //Every 800 milliseconds, print a numerical, convert the state of the LED indicator
+//   {
+//     return pHValue;
+//     printTime = millis();
+//   }
+// }
 
 double avergearray(int *arr, int number)
 {
@@ -129,7 +135,8 @@ double avergearray(int *arr, int number)
 
 void setup()
 {
-  Serial.begin(115200);
+  Serial.begin(9600);
+  s.begin(9600);
   servoAir.attach(9);
   sensors.begin();
   pinMode(relayHeater, OUTPUT);
@@ -141,18 +148,38 @@ void setup()
 
 void loop()
 {
-  //  float sensorVal = getPH();
-  //  Serial.println(sensorVal);
+  float suhu = getSuhu();
+  float salinitas = getTDS();
+  float pH = 0; //getPH();
   //    servoAir.write(120);
   //    digitalWrite(10, HIGH);
-  //    digitalWrite (relayHeater,ON);
+     digitalWrite (relayHeater,ON);
   //    digitalWrite (relayPompa,ON);
   //    Serial.println("relay nyala");
-  //    delay(1000);
+    //  delay(1000);
   //    servoAir.write(0);
   //    digitalWrite(10, LOW);
-  //    digitalWrite (relayHeater,OFF);
+    //  digitalWrite (relayHeater,OFF);
   //    digitalWrite (relayPompa,OFF);
   //    Serial.println("relay mati");
   //  delay(1000);
+  if (isnan(suhu) || isnan(salinitas) || isnan(pH))
+  {
+    return;
+  }
+  root["suhu"] = suhu;
+  root["salinitas"] = salinitas;
+  root["pH"] = pH;
+
+  if (s.available() > 0)
+  {
+    root.printTo(s);
+  }
+  Serial.print("Suhu : ");
+  Serial.println(suhu);
+  Serial.print("Salinitas : ");
+  Serial.println(salinitas);
+  Serial.print("pH : ");
+  Serial.println(pH);
+  Serial.println();
 }
