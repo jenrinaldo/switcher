@@ -13,18 +13,17 @@
 #define relayPompa 52
 #define pinSuhu 4
 
-
 //variable sensor pH
 float calibration = 0.00;
-unsigned long int avgValue; 
-int buf[10],temp;
+unsigned long int avgValue;
+int buf[10], temp;
 
 //variable sensor TDS
 int sensorValue;               //adc value
 float outputValueConductivity; //conductivity value
 float outputValueTDS;          //TDS value
 
-//variable sensor Ketinggian Air 
+//variable sensor Ketinggian Air
 int sensorAirVal = 0;
 const int airNormal = 410;
 const int airPenuh = 560;
@@ -41,7 +40,8 @@ SoftwareSerial s(11, 10); // (Rx, Tx)
 StaticJsonBuffer<1000> jsonBuffer;
 JsonObject &root = jsonBuffer.createObject();
 
-float getTingiAir(){
+float getTingiAir()
+{
   sensorAirVal = analogRead(sensorAir);
   return sensorAirVal;
 }
@@ -65,30 +65,31 @@ float getSuhu()
   return Celcius;
 }
 
-float getPh(){
-  for(int i=0;i<10;i++) 
- { 
- buf[i]=analogRead(sensorPH);
- delay(30);
- }
- for(int i=0;i<9;i++)
- {
- for(int j=i+1;j<10;j++)
- {
- if(buf[i]>buf[j])
- {
- temp=buf[i];
- buf[i]=buf[j];
- buf[j]=temp;
- }
- }
- }
- avgValue=0;
- for(int i=2;i<8;i++)
- avgValue+=buf[i];
- float pHVol=(float)avgValue*5.0/1024/6;
- float phValue = -5.70 * pHVol + calibration; 
- return phValue;
+float getPh()
+{
+  for (int i = 0; i < 10; i++)
+  {
+    buf[i] = analogRead(sensorPH);
+    delay(30);
+  }
+  for (int i = 0; i < 9; i++)
+  {
+    for (int j = i + 1; j < 10; j++)
+    {
+      if (buf[i] > buf[j])
+      {
+        temp = buf[i];
+        buf[i] = buf[j];
+        buf[j] = temp;
+      }
+    }
+  }
+  avgValue = 0;
+  for (int i = 2; i < 8; i++)
+    avgValue += buf[i];
+  float pHVol = (float)avgValue * 5.0 / 1024 / 6;
+  float phValue = -5.70 * pHVol + calibration;
+  return phValue;
 }
 
 void setup()
@@ -108,25 +109,27 @@ void loop()
   float suhu = getSuhu();
   float salinitas = getTDS();
   float tAir = getTingiAir();
-  float pH = analogRead(sensorPH); //getPH();
+  float pH = getPh();
   //    servoAir.write(120);
   //    digitalWrite(10, HIGH);
-     digitalWrite (relayHeater,ON);
+  digitalWrite(relayHeater, ON);
   //    digitalWrite (relayPompa,ON);
   //    servoAir.write(0);
   //    digitalWrite(10, LOW);
-    //  digitalWrite (relayHeater,OFF);
+  //  digitalWrite (relayHeater,OFF);
   //    digitalWrite (relayPompa,OFF);
+  // check if data is number or not
   if (isnan(suhu) || isnan(salinitas) || isnan(pH))
   {
     return;
   }
+  // make json data structure
   root["suhu"] = suhu;
   root["salinitas"] = salinitas;
   root["pH"] = pH;
-
-  if (s.available() > 0)
-  {
-    root.printTo(s);
-  }
+  //send data to NodeMcu with serial communication
+  // if (s.available() > 0)
+  // {
+  //   root.printTo(s);
+  // }
 }
