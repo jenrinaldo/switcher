@@ -8,21 +8,26 @@
 #define OFF 1 //nilai relay ketika mati
 #define sensorTDS A0
 #define sensorPH A1
+#define sensorAir A2
 #define relayHeater 53
 #define relayPompa 52
 #define pinSuhu 4
 
-// #define Offset -5.77 //deviation compensate
-#define samplingInterval 20
-#define printInterval 800
-#define ArrayLenth 40    //times of collection
-int pHArray[ArrayLenth]; //Store the average value of the sensor feedback
-int pHArrayIndex = 0;
+
+//variable sensor pH
+float calibration = 0.00;
+unsigned long int avgValue; 
+int buf[10],temp;
 
 //variable sensor TDS
 int sensorValue;               //adc value
 float outputValueConductivity; //conductivity value
 float outputValueTDS;          //TDS value
+
+//variable sensor Ketinggian Air 
+int sensorAirVal = 0;
+const int airNormal = 410;
+const int airPenuh = 560;
 
 //variable sensor Suhu
 float Celcius = 0;
@@ -31,10 +36,15 @@ float Fahrenheit = 0;
 Servo servoAir;
 OneWire oneWire(pinSuhu);
 DallasTemperature sensors(&oneWire);
-SoftwareSerial s(10, 11); // (Rx, Tx)
+SoftwareSerial s(11, 10); // (Rx, Tx)
 // Json
 StaticJsonBuffer<1000> jsonBuffer;
 JsonObject &root = jsonBuffer.createObject();
+
+float getTingiAir(){
+  sensorAirVal = analogRead(sensorAir);
+  return sensorAirVal;
+}
 
 float getTDS()
 {
@@ -55,87 +65,34 @@ float getSuhu()
   return Celcius;
 }
 
-// float getPH()
-// {
-//   static unsigned long samplingTime = millis();
-//   static unsigned long printTime = millis();
-//   static float pHValue, voltage;
-//   if (millis() - samplingTime > samplingInterval)
-//   {
-//     pHArray[pHArrayIndex++] = analogRead(sensorPH);
-//     if (pHArrayIndex == ArrayLenth)
-//       pHArrayIndex = 0;
-//     voltage = avergearray(pHArray, ArrayLenth) * 5.0 / 1024;
-//     pHValue = 3.5 * voltage + Offset;
-//     samplingTime = millis();
-//   }
-//   if (millis() - printTime > printInterval) //Every 800 milliseconds, print a numerical, convert the state of the LED indicator
-//   {
-//     return pHValue;
-//     printTime = millis();
-//   }
-// }
-
-double avergearray(int *arr, int number)
-{
-  int i;
-  int max, min;
-  double avg;
-  long amount = 0;
-  if (number <= 0)
-  {
-    Serial.println("Error number for the array to avraging!/n");
-    return 0;
-  }
-  if (number < 5)
-  { //less than 5, calculated directly statistics
-    for (i = 0; i < number; i++)
-    {
-      amount += arr[i];
-    }
-    avg = amount / number;
-    return avg;
-  }
-  else
-  {
-    if (arr[0] < arr[1])
-    {
-      min = arr[0];
-      max = arr[1];
-    }
-    else
-    {
-      min = arr[1];
-      max = arr[0];
-    }
-    for (i = 2; i < number; i++)
-    {
-      if (arr[i] < min)
-      {
-        amount += min; //arr<min
-        min = arr[i];
-      }
-      else
-      {
-        if (arr[i] > max)
-        {
-          amount += max; //arr>max
-          max = arr[i];
-        }
-        else
-        {
-          amount += arr[i]; //min<=arr<=max
-        }
-      } //if
-    }   //for
-    avg = (double)amount / (number - 2);
-  } //if
-  return avg;
+float getPh(){
+  for(int i=0;i<10;i++) 
+ { 
+ buf[i]=analogRead(sensorPH);
+ delay(30);
+ }
+ for(int i=0;i<9;i++)
+ {
+ for(int j=i+1;j<10;j++)
+ {
+ if(buf[i]>buf[j])
+ {
+ temp=buf[i];
+ buf[i]=buf[j];
+ buf[j]=temp;
+ }
+ }
+ }
+ avgValue=0;
+ for(int i=2;i<8;i++)
+ avgValue+=buf[i];
+ float pHVol=(float)avgValue*5.0/1024/6;
+ float phValue = -5.70 * pHVol + calibration; 
+ return phValue;
 }
 
 void setup()
 {
-  Serial.begin(9600);
   s.begin(9600);
   servoAir.attach(9);
   sensors.begin();
@@ -150,19 +107,16 @@ void loop()
 {
   float suhu = getSuhu();
   float salinitas = getTDS();
-  float pH = 0; //getPH();
+  float tAir = getTingiAir();
+  float pH = analogRead(sensorPH); //getPH();
   //    servoAir.write(120);
   //    digitalWrite(10, HIGH);
      digitalWrite (relayHeater,ON);
   //    digitalWrite (relayPompa,ON);
-  //    Serial.println("relay nyala");
-    //  delay(1000);
   //    servoAir.write(0);
   //    digitalWrite(10, LOW);
     //  digitalWrite (relayHeater,OFF);
   //    digitalWrite (relayPompa,OFF);
-  //    Serial.println("relay mati");
-  //  delay(1000);
   if (isnan(suhu) || isnan(salinitas) || isnan(pH))
   {
     return;
@@ -175,11 +129,4 @@ void loop()
   {
     root.printTo(s);
   }
-  Serial.print("Suhu : ");
-  Serial.println(suhu);
-  Serial.print("Salinitas : ");
-  Serial.println(salinitas);
-  Serial.print("pH : ");
-  Serial.println(pH);
-  Serial.println();
 }
