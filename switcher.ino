@@ -9,9 +9,13 @@
 #define sensorTDS A0
 #define sensorPH A1
 #define sensorAir A2
-#define relayHeater 53
-#define relayPompa 52
+#define relayHeater 7
+#define relayPompa 8
 #define pinSuhu 4
+
+// variable kontrol relayPompa
+int data;
+int lastData;
 
 //variable sensor pH
 float calibration = 0.00;
@@ -35,7 +39,8 @@ float Fahrenheit = 0;
 Servo servoAir;
 OneWire oneWire(pinSuhu);
 DallasTemperature sensors(&oneWire);
-SoftwareSerial s(11, 10); // (Rx, Tx)
+SoftwareSerial uno(5, 6);
+
 // Json
 StaticJsonBuffer<1000> jsonBuffer;
 JsonObject &root = jsonBuffer.createObject();
@@ -54,7 +59,6 @@ float getTDS()
   //Mathematical Conversion from ADC to TDS (ppm)
   //rumus berdasarkan datasheet
   outputValueTDS = (0.3417 * sensorValue) + 281.08;
-
   return outputValueTDS;
 }
 
@@ -94,14 +98,14 @@ float getPh()
 
 void setup()
 {
-  s.begin(9600);
+  uno.begin(115200);
   servoAir.attach(9);
   sensors.begin();
   pinMode(relayHeater, OUTPUT);
   pinMode(10, OUTPUT);
   digitalWrite(relayHeater, OFF);
   pinMode(relayPompa, OUTPUT);
-  digitalWrite(relayPompa, OFF);
+  digitalWrite(relayPompa, OFF); 
 }
 
 void loop()
@@ -109,27 +113,35 @@ void loop()
   float suhu = getSuhu();
   float salinitas = getTDS();
   float tAir = getTingiAir();
-  float pH = getPh();
-  //    servoAir.write(120);
+  float pH = getPh(); 
+
+  //    servoAir.write(120); 
   //    digitalWrite(10, HIGH);
-  digitalWrite(relayHeater, ON);
+  // digitalWrite(relayHeater, ON);
   //    digitalWrite (relayPompa,ON);
   //    servoAir.write(0);
   //    digitalWrite(10, LOW);
   //  digitalWrite (relayHeater,OFF);
   //    digitalWrite (relayPompa,OFF);
+
   // check if data is number or not
   if (isnan(suhu) || isnan(salinitas) || isnan(pH))
   {
     return;
-  }
+  } 
   // make json data structure
   root["suhu"] = suhu;
   root["salinitas"] = salinitas;
   root["pH"] = pH;
   //send data to NodeMcu with serial communication
-  // if (s.available() > 0)
-  // {
-  //   root.printTo(s);
-  // }
+  if (uno.available() > 0)
+  {
+    root.printTo(uno);
+    data = uno.read();
+  }
+  if(data==0){
+    digitalWrite(relayPompa,OFF);
+  } else if(data==1){
+    digitalWrite(relayPompa,ON);
+  }
 }
