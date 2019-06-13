@@ -1,3 +1,6 @@
+# VS Code cache folder
+*.vscode
+
 # Prerequisites
 *.d
 
