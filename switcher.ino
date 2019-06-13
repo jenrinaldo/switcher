@@ -26,6 +26,7 @@ int buf[10], temp;
 int sensorValue;               //adc value
 float outputValueConductivity; //conductivity value
 float outputValueTDS;          //TDS value
+string statusSalinitas = "";
 
 //variable sensor Ketinggian Air
 int sensorAirVal = 0;
@@ -106,6 +107,7 @@ void setup()
   digitalWrite(relayHeater, OFF);
   pinMode(relayPompa, OUTPUT);
   digitalWrite(relayPompa, OFF); 
+  servoAir.write(0);
 }
 
 void loop()
@@ -115,14 +117,53 @@ void loop()
   float tAir = getTingiAir();
   float pH = getPh(); 
 
-  //    servoAir.write(120); 
-  //    digitalWrite(10, HIGH);
-  // digitalWrite(relayHeater, ON);
-  //    digitalWrite (relayPompa,ON);
-  //    servoAir.write(0);
-  //    digitalWrite(10, LOW);
-  //  digitalWrite (relayHeater,OFF);
-  //    digitalWrite (relayPompa,OFF);
+  if (uno.available() > 0)
+  {
+    data = uno.read();
+  }
+
+  // control ketinggian air
+  if(tAir<airNormal){
+    statusAir = "RENDAH";
+  } else if(tAir<=airNormal && tAir!>airPenuh){
+    statusAir = "NORMAL";
+  } else {
+    statusAir = "TINGGI";
+  }
+
+  // control salinitas
+  if((salinitas<=28)&&(salinitas !> 33)){
+    statusSalinitas = "NORMAL";
+  } else if(salinitas < 28 ) {
+    statusSalinitas = "RENDAH";
+  } else {
+    statusSalinitas = "TINGGI";
+  }
+
+  // control heater
+  if((suhu <=28.5) || (suhu !> 29)){
+    digitalWrite(relayHeater,ON);
+  }
+  else
+  {
+    digitalWrite(relayHeater,OFF);
+  }
+  
+  // control pompa
+  if((pH<=7.59) || (pH !> 8.17)){
+    digitalWrite(relayPompa,ON);
+    servoAir.write(120);
+  } else {
+    digitalWrite(relayPompa,OFF);
+    servoAir.write(0);
+  }
+
+  // check otomatis
+  if(data==0){
+    digitalWrite(relayPompa,OFF);
+  } else if(data==1){
+    digitalWrite(relayPompa,ON);
+  }
 
   // check if data is number or not
   if (isnan(suhu) || isnan(salinitas) || isnan(pH))
@@ -137,11 +178,5 @@ void loop()
   if (uno.available() > 0)
   {
     root.printTo(uno);
-    data = uno.read();
-  }
-  if(data==0){
-    digitalWrite(relayPompa,OFF);
-  } else if(data==1){
-    digitalWrite(relayPompa,ON);
   }
 }
